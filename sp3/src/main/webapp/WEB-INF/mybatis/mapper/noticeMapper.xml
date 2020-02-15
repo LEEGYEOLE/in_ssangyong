@@ -1,0 +1,151 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- currval을 사용한 경우, 캐쉬같은걸로 시퀀스 설정을 할 때, 잘못된 값이 나올 수 있다. 여러명이 사용하는 경우...?-->
+<mapper namespace="notice">
+	<select id="seq" resultType="Integer">
+		SELECT notice_seq.nextval FROM dual
+	</select>
+	<insert id="insertNotice" parameterType="com.sp.notice.Notice">
+		INSERT INTO notice(num, notice, userId, subject, content)
+		VALUES(#{num}, #{notice}, #{userId}, #{subject}, #{content})
+	</insert>
+	<insert id="insertNoticeFile" parameterType="com.sp.notice.Notice">
+        INSERT INTO noticefile(FILENUM, NUM, SAVEFILENAME,ORIGINALFILENAME,FILESIZE)
+        VALUES(NOTICEFILE_SEQ.nextval,#{num},#{saveFilename},#{originalFilename},#{fileSize})
+        
+ 
+<!--         <foreach collection="upload" item="item" separator=" , "> -->
+<!--             (#{item}) -->
+<!--         </foreach> -->
+	</insert>
+	
+	<sql id="where-list">
+		<choose>
+		<when test="condition=='all'">
+			(INSTR(subject,#{keyword}) &gt; 0
+			OR
+			DBMS_LOB.INSTR(content, #{keyword}) &gt; 0 )
+
+		</when>
+		<when test="condition=='content'">
+			DBMS_LOB.INSTR(content, #{keyword}) &gt; 0
+		</when>
+		<when test="condition=='created'">
+			(TO_CHAR(created, 'YYYY-MM-DD')=#{keyword}
+			OR
+			TO_CHAR(created, 'YYYYMMDD')=#{keyword})
+		</when>
+		<otherwise>
+			INSTR(${condition},#{keyword}) &gt; 0
+		</otherwise>
+		</choose>
+	</sql>
+	
+	<select id="dataCount" parameterType="map" resultType="Integer">
+		SELECT NVL(COUNT(*),0)
+		FROM notice n
+		JOIN member1 m1 ON n.userId=m1.userId 
+		<where>
+			<if test="keyword!=null and keyword!=''">
+				<include refid="where-list" />
+			</if>
+		</where>
+	</select>
+	<update id="updateNotice" parameterType="com.sp.notice.Notice">
+		UPDATE notice SET subject=#{subject},content=#{content},
+						notice=#{notice}
+		WHERE num=#{num}
+	</update>
+	<delete id="deleteNotice" parameterType="Integer">
+		DELETE FROM notice WHERE num=#{num}
+	</delete>
+	<delete id="deleteFile" parameterType="map">
+		DELETE FROM noticeFile WHERE ${field}=#{num}
+	</delete>
+	
+	
+	<select id="listNoticeTop" resultType="com.sp.notice.Notice">
+      SELECT n.num,notice,n.userId,userName,subject,content,hitCount,TO_CHAR(created, 'YYYY-MM-DD') created,
+            NVL(fileCount,0) fileCount 
+      FROM notice n 
+      JOIN member1 m1 ON n.userId=m1.userId
+      LEFT OUTER JOIN (
+         SELECT num, COUNT(*) fileCount FROM noticeFile
+         GROUP BY num
+      ) f On n.num=f.num
+      WHERE notice=1
+      ORDER BY n.num DESC
+   </select>
+   
+   
+   <select id="listNotice" parameterType="map" resultType="com.sp.notice.Notice">
+      SELECT n.num,notice,n.userId,userName,subject,content,hitCount,created,
+            NVL(fileCount,0) fileCount 
+      FROM notice n 
+      JOIN member1 m1 ON n.userId=m1.userId
+      LEFT OUTER JOIN (
+         SELECT num, COUNT(*) fileCount FROM noticeFile
+         GROUP BY num
+      ) f On n.num=f.num
+      <where>
+         <if test="keyword!=null and keyword!=''">
+            <include refid="where-list"/>
+         </if>
+      </where>
+      ORDER BY n.num DESC
+      OFFSET #{offset} ROWS fETCH FIRST #{rows} ROWS ONLY
+   </select>
+   
+   <select id="listFile" parameterType="Integer" resultType="com.sp.notice.Notice">
+   	SELECT fileNum, num, saveFilename, originalFilename, fileSize
+   	FROM noticeFile
+   	WHERE num=#{num}
+   </select>
+	<select id="readNotice" parameterType="Integer"  resultType="com.sp.notice.Notice">
+		SELECT n.num,notice,n.userId,userName,subject,content,hitCount,created, notice
+      FROM notice n 
+      JOIN member1 m1 ON n.userId=m1.userId
+      	WHERE n.num=#{num}
+	</select>
+	
+	<select id="preReadNotice" parameterType="map" resultType="com.sp.notice.Notice">
+      SELECT num, subject
+      FROM notice n 
+      JOIN member1 m1 ON n.userId=m1.userId
+      <where>
+         <if test="keyword!=null and keyword!=''">
+            <include refid="where-list"/>
+         </if>
+         AND (num &gt; #{num})
+      </where>
+      ORDER BY num ASC
+      FETCH FIRST 1ROWS ONLY
+	</select>
+	
+	<select id="nextReadNotice" parameterType="map" resultType="com.sp.notice.Notice">
+      SELECT num, subject
+      FROM notice n 
+      JOIN member1 m1 ON n.userId=m1.userId
+      <where>
+         <if test="keyword!=null and keyword!=''">
+            <include refid="where-list"/>
+         </if>
+         AND (num &lt; #{num})
+      </where>
+      ORDER BY num DESC
+      FETCH FIRST 1ROWS ONLY
+	</select>
+	
+	<select id="updateHitCount" parameterType="Integer">
+		UPDATE notice SET
+			hitCount=hitCount+1
+		WHERE num=#{num}
+	</select>
+	
+	<select id="readFile" parameterType="Integer" resultType="com.sp.notice.Notice">
+   	SELECT fileNum, num, saveFilename, originalFilename, fileSize
+   	FROM noticeFile
+   	WHERE fileNum=#{fileNum}
+   </select>
+</mapper>
