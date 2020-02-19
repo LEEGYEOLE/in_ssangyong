@@ -80,7 +80,15 @@
                 <li><a href="#">이벤트</a></li>
             </ul>
         </li>
-
+        
+		<li>
+            <a href="#">관광정보</a>
+            <ul>
+                <li><a href="#" style="margin-left:150px; " onmouseover="this.style.marginLeft='150px';">역 소개</a></li>
+                <li><a href="<%=cp%>/tour/main">관광정보 조회</a></li>
+            </ul>
+        </li>
+        
         <c:if test="${not empty sessionScope.member}">
         <li>
             <a href="#">마이페이지</a>
